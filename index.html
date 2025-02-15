@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Change a point color</title>
+  </head>
+
+  <body onload="main()">
+
+    <p>
+      Simon Kagle <br>
+      skagle@ucsc.edu <br>
+      Notes to grader: 
+      <ul>
+        <li>Left click to delete, right click to place</li>
+        <li>Try to find the path that leads to the cats (blocky animal)</li>
+          <sub>Or be boring and just fly up</sub>
+        <li>Story: The cats, trapped inside the walls of the garden, find respite in worshiping The Cones</li>
+        <li>2M+ blocks rendered at a time with GPU instancing</li>
+      </ul>
+    </p>
+    
+    <br>
+
+    <canvas id="webgl" width="400" height="400">
+    Please use a browser that supports "canvas"
+    </canvas>
+    <br>
+    frame time: <span id="frameTime">(calculating...) </span>ms, 
+    fps: <span id="fps">(calculating...)</span> fps
+    <br>
+    block count: <span id="blockCount"></span> blocks
+
+    <script src="lib/cuon-matrix-cse160.js"></script>
+    <script src="lib/webgl-utils.js"></script>
+    <script src="lib/webgl-debug.js"></script>
+    <script src="lib/cuon-utils.js"></script>
+    <script src="Camera.js"></script>
+    <script src="Shapes.js"></script>
+    <script src="VirtWorld.js"></script>
+  </body>
+</html>
