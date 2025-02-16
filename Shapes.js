@@ -21,6 +21,7 @@ function drawPrimitive(gl, drawType, n, vertices, matrix, color,
     if(!vertBuffer){
         throw new Error('No vert buffer!');
     }
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertBuffer);
     
     gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(a_Position);
@@ -214,7 +215,6 @@ class Cone {
 
         this.topVertBuffer = null;
         this.baseVertBuffer = null;
-        console.log(this.base_vertices, this.top_vertices);
 
     }
 
@@ -226,10 +226,10 @@ class Cone {
      * @param {WebGLUniformLocation} u_Matrix Matrix uniform
      */
     render(gl, a_Position, u_FragColor, u_Matrix){
-        if (true){
+        if (this.baseVertBuffer == null){
             this.baseVertBuffer = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, this.baseVertBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, this.base_vertices, gl.STATIC_DRAW);
+            gl.bufferData(gl.ARRAY_BUFFER, this.base_vertices, gl.DYNAMIC_DRAW);
         }
 
 
@@ -241,10 +241,10 @@ class Cone {
             a_Position, u_FragColor, u_Matrix, this.baseVertBuffer
         );
 
-        if (true){
+        if (this.topVertBuffer == null){
             this.topVertBuffer = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, this.topVertBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, this.top_vertices, gl.STATIC_DRAW);
+            gl.bufferData(gl.ARRAY_BUFFER, this.top_vertices, gl.DYNAMIC_DRAW);
         }
 
         drawPrimitive(gl, gl.TRIANGLE_FAN, 
@@ -299,13 +299,13 @@ class TexCube extends Cube {
         if (this.vertBuffer == null){
             this.vertBuffer = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, this.vertices, gl.DYNAMIC_DRAW);
+            gl.bufferData(gl.ARRAY_BUFFER, this.vertices, gl.STATIC_DRAW);
         }
 
         if (this.uvBuffer == null){
             this.uvBuffer = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, this.uvBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, this.uvs, gl.DYNAMIC_DRAW);
+            gl.bufferData(gl.ARRAY_BUFFER, this.uvs, gl.STATIC_DRAW);
         }
 
         drawPrimitiveUV(gl, gl.TRIANGLES, this.vertices.length / 3, this.vertices, this.uvs, this.matrix, 
@@ -322,6 +322,7 @@ class World {
      */
     constructor (blockHeights, cubeSize){
         this.block_count = 0;
+        /**@type {Boolean[][][]} */
         this.cubes = [];
         for (var z = 0; z < blockHeights.length; z++){
             this.cubes.push([]);
@@ -411,7 +412,7 @@ class World {
                 throw new Error('Could not create UV buffer!');
             }
             gl.bindBuffer(gl.ARRAY_BUFFER, this.uvBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, this.inst.uvs, gl.STREAM_DRAW);
+            gl.bufferData(gl.ARRAY_BUFFER, this.inst.uvs, gl.DYNAMIC_DRAW);
 
         }
 
@@ -429,16 +430,24 @@ class World {
             this.block_count = 0;
             for (var z = 0; z < this.cubes.length; z++){
                 for (var x = 0; x < this.cubes[z].length; x++){
-                    for (var y = 0; y < this.cubes[z][x].length; y++){
-                        if (this.cubes[z][x][y]){
-                            this.offset_cache.push(
-                                (x - this.cubes[z].length / 2) * 2 * this.cubeSize, 
-                                y * 2 * this.cubeSize, 
-                                (z - this.cubes.length / 2) * 2 * this.cubeSize
-                            );
-                            this.block_count++;
-                        }
-                    }
+                    // for (var y = 0; y < this.cubes[z][x].length; y++){
+                    //     if (this.cubes[z][x][y]){
+                    //         this.offset_cache.push(
+                    //             (x - this.cubes[z].length / 2) * 2 * this.cubeSize, 
+                    //             y * 2 * this.cubeSize, 
+                    //             (z - this.cubes.length / 2) * 2 * this.cubeSize
+                    //         );
+                    //         this.block_count++;
+                    //     }
+                    // }
+                    this.cubes[z][x].filter((v) => v).forEach((_, y) => {
+                        this.offset_cache.push(
+                            (x - this.cubes[z].length / 2) * 2 * this.cubeSize, 
+                            y * 2 * this.cubeSize, 
+                            (z - this.cubes.length / 2) * 2 * this.cubeSize
+                        );
+                        this.block_count++;
+                    });
                 }
             }
 
@@ -459,6 +468,223 @@ class World {
         // console.log(gl.getBufferParameter(this.uvBuffer, gl.BUFFER_SIZE));
         // console.log(gl.getBufferParameter(this.offsetBuffer, gl.BUFFER_SIZE));
     }
+}
+
+class Cat {
+
+    constructor(){
+        this.furLight = [255/255, 153/255, 20/255];
+        this.furDark = [173/255, 104/255, 14/255];
+        this.white = this.furLight;
+        this.black = [0, 0, 0];
+        this.nose = [235/255, 89/255, 121/255];
+        this.noseFacesColors = [
+            this.furDark, 
+            this.furDark, 
+            this.nose,
+            this.furDark,
+            this.furDark,
+            this.furDark
+        ]
+
+        this.proximalTail = new Cube(new Matrix4(), this.furLight, [0.03, 0.03, 0.08]);
+        this.midTail = new Cube(new Matrix4(), this.furDark, [0.025, 0.025, 0.085]);
+        this.distalTail = new Cube(new Matrix4(), this.furLight, [0.02, 0.02, 0.09]);
+        this.head = new Cube(new Matrix4(), this.furLight, [0.13, 0.13, 0.13]);
+        this.leftEar = new Cube(new Matrix4(), this.noseFacesColors, [0.05, 0.05, 0.005]);
+        this.leftEye = new Cube(new Matrix4(), this.black, [0.01, 0.03, 0.0]);
+        this.leftBottomWhisker = new Cube(new Matrix4(), this.black, [0.01, 0.04, 0.0]);
+        this.leftTopWhisker = new Cube(new Matrix4(), this.black, [0.01, 0.04, 0.0]);
+        this.noseTop = new Cube(new Matrix4(), this.nose, [0.03, 0.01, 0.0]);
+        this.nosebottom = new Cube(new Matrix4(), this.nose, [0.01, 0.01, 0.0]);
+        this.rightEar = new Cube(new Matrix4(), this.noseFacesColors, [0.05, 0.05, 0.005]);
+        this.rightEye = new Cube(new Matrix4(), this.black, [0.01, 0.03, 0.0]);
+        this.rightBottomWhisker = new Cube(new Matrix4(), this.black, [0.01, 0.04, 0.0]);
+        this.rightTopWhisker = new Cube(new Matrix4(), this.black, [0.01, 0.04, 0.0]);
+        this.partyHat = new Cone(new Matrix4(), [1, .3, .3], .08, .16);
+        this.body = new Cube(new Matrix4(), this.furLight, [0.12, 0.07, 0.26]);
+        this.leftBackLeg = new Cube(new Matrix4(), this.furDark, [0.03, 0.1, 0.03]);
+        this.leftBackToe = new Cube(new Matrix4(), this.white, [0.03, 0.02, 0.03]);
+        this.leftFrontLeg = new Cube(new Matrix4(), this.furDark, [0.03, 0.1, 0.03]);
+        this.leftFrontToe = new Cube(new Matrix4(), this.white, [0.03, 0.02, 0.03]);
+        this.rightFrontLeg = new Cube(new Matrix4(), this.furDark, [0.03, 0.1, 0.03]);
+        this.rightFrontToe = new Cube(new Matrix4(), this.white, [0.03, 0.02, 0.03]);
+        this.rightBackLeg = new Cube(new Matrix4(), this.furDark, [0.03, 0.1, 0.03]);
+        this.rightBackToe = new Cube(new Matrix4(), this.white, [0.03, 0.02, 0.03]);
+
+    }
+
+    render(gl, fullModelM, time, a_Position, u_FragColor, u_ModelMatrix){
+        // Clear <canvas>
+      
+        let proxTXSlider = -30;
+        let midTXSlider = -10;
+        let distTXSlider = -10;
+        let proxTYSlider = 45 * Math.sin(time / 30);
+        let midTYSlider = 20 * Math.sin(time / 30);
+        let distTYSlider = 10 * Math.sin(time / 30);
+        let leftLegsRot = 20 * Math.sin(time / 30);
+        let rightLegsRot = 20 * Math.cos(time / 30 + .5)
+      
+        // Proximal Tail
+        this.proximalTail.matrix = new Matrix4(fullModelM);
+        this.proximalTail.matrix.translate(0.008, 0.025, 0.06);
+        this.proximalTail.matrix.rotate(proxTYSlider, 0, 1, 0);
+        this.proximalTail.matrix.rotate(proxTXSlider, 1, 0, 0);
+        this.proximalTail.matrix.translate(0, 0, 0.08/2);
+        
+        // Mid Tail
+        this.midTail.matrix = new Matrix4(this.proximalTail.matrix);
+        this.midTail.matrix.translate(0, 0, .13 - 0.085/2);
+        this.midTail.matrix.rotate(midTYSlider, 0, 1, 0);
+        this.midTail.matrix.rotate(midTXSlider, 1, 0, 0);
+        this.midTail.matrix.translate(0, 0, 0.085/2);
+      
+        // Distal Tail
+        this.distalTail.matrix = new Matrix4(this.midTail.matrix);
+        this.distalTail.matrix.translate(0, 0, .14 - 0.09/2);
+        this.distalTail.matrix.rotate(distTYSlider, 0, 1, 0);
+        this.distalTail.matrix.rotate(distTXSlider, 1, 0, 0);
+        this.distalTail.matrix.translate(0, 0, 0.09/2);
+        
+        
+        // Head
+        this.head.matrix = new Matrix4(fullModelM);
+        this.head.matrix.translate(0.0, 0.086, -0.627);
+        this.head.matrix.rotate(0.0, 0.0, 0.0, -1.0);  
+        
+        
+        this.leftEar.matrix = new Matrix4(fullModelM);
+        this.leftEar.matrix.translate(-0.06, 0.196, -0.707);
+        this.leftEar.matrix.rotate(54.17, 0.22, -0.54, -0.81);  
+        
+        // Left Eye
+        this.leftEye.matrix = new Matrix4(fullModelM);
+        this.leftEye.matrix.translate(-0.064, 0.142, -0.763);
+        this.leftEye.matrix.rotate(0.0, 0.0, 0.0, -1.0);
+      
+        // Left-Bottom Whisker
+        this.leftBottomWhisker.matrix = new Matrix4(fullModelM);
+        this.leftBottomWhisker.matrix.translate(-0.124, 0.037, -0.763);
+        this.leftBottomWhisker.matrix.rotate(73.32, 0.0, 0.0, -1.0);  
+      
+        // Left-Top Whisker
+        this.leftTopWhisker.matrix = new Matrix4(fullModelM);
+        this.leftTopWhisker.matrix.translate(-0.124, 0.086, -0.763);
+        this.leftTopWhisker.matrix.rotate(73.32, 0.0, 0.0, 1.0);
+        
+        // Nose Top
+        this.noseTop.matrix = new Matrix4(fullModelM);
+        this.noseTop.matrix.translate(0.0, 0.072, -0.765);
+        this.noseTop.matrix.rotate(0.0, 0.0, 0.0, -1.0);
+      
+        // NoseBottom
+        this.nosebottom.matrix = new Matrix4(fullModelM);
+        this.nosebottom.matrix.translate(0.0, 0.049, -0.765);
+        this.nosebottom.matrix.rotate(0.0, 0.0, 0.0, -1.0);  
+      
+        // Right Ear
+        this.rightEar.matrix = new Matrix4(fullModelM);
+        this.rightEar.matrix.translate(0.06, 0.196, -0.707);
+        this.rightEar.matrix.rotate(54.17, -0.22, 0.54, -0.81);  
+      
+        // Right Eye
+        this.rightEye.matrix = new Matrix4(fullModelM);
+        this.rightEye.matrix.translate(0.064, 0.142, -0.763);
+        this.rightEye.matrix.rotate(0.0, 0.0, 0.0, -1.0);
+        
+        // Right-Bottom Whisker
+        this.rightBottomWhisker.matrix = new Matrix4(fullModelM);
+        this.rightBottomWhisker.matrix.translate(0.124, 0.037, -0.763);
+        this.rightBottomWhisker.matrix.rotate(106.68, 0.0, 0.0, -1.0);
+      
+        // Right-Top Whisker
+        this.rightTopWhisker.matrix = new Matrix4(fullModelM);
+        this.rightTopWhisker.matrix.translate(0.124, 0.086, -0.763);
+        this.rightTopWhisker.matrix.rotate(106.69, 0.0, -0.0, 1.0);
+        
+        // Party Hat
+        this.partyHat.matrix = new Matrix4(fullModelM);
+        this.partyHat.matrix.translate(0.0, 0.2 + 0, -0.6);
+      
+      
+        // Body
+        this.body.matrix = new Matrix4(fullModelM);
+        this.body.matrix.translate(0.0, -0.014, -0.238);
+        this.body.matrix.rotate(0.0, 0.0, 0.0, -1.0);
+        
+        
+      
+        // Left-Back Leg
+        this.leftBackLeg.matrix = new Matrix4(fullModelM);
+        this.leftBackLeg.matrix.translate(-0.086, -0.178, -0.015);
+        this.leftBackLeg.matrix.translate(0, 0.07, 0.015);
+        this.leftBackLeg.matrix.rotate(leftLegsRot, 1.0, 0.0, -0.0);
+        this.leftBackLeg.matrix.translate(0, -0.07, -0.015);
+        // Left-Back Toe
+        this.leftBackToe.matrix = new Matrix4(this.leftBackLeg.matrix);
+        this.leftBackToe.matrix.translate(0, -0.254 + .178, -0.040);
+        
+      
+        // Left-Front Leg
+        this.leftFrontLeg.matrix = new Matrix4(fullModelM);
+        this.leftFrontLeg.matrix.translate(-0.086, -0.178, -0.455);
+        this.leftFrontLeg.matrix.translate(0, 0.07, 0.015);
+        this.leftFrontLeg.matrix.rotate(leftLegsRot, 1.0, 0.0, -0.0);
+        this.leftFrontLeg.matrix.translate(0, -0.07, -0.015);
+        // Left-Front Toe
+        this.leftFrontToe.matrix = new Matrix4(this.leftFrontLeg.matrix);
+        this.leftFrontToe.matrix.translate(0, -0.254 + .178, -0.494 + .455);
+        
+      
+        // Right-Front Leg
+        this.rightFrontLeg.matrix = new Matrix4(fullModelM);
+        this.rightFrontLeg.matrix.translate(0.086, -0.178, -0.455);
+        this.rightFrontLeg.matrix.translate(0, 0.07, 0.015);
+        this.rightFrontLeg.matrix.rotate(rightLegsRot, 1.0, 0.0, -0.0);
+        this.rightFrontLeg.matrix.translate(0, -0.07, -0.015);
+        // Right-Front Toe
+        this.rightFrontToe.matrix = new Matrix4(this.rightFrontLeg.matrix);
+        this.rightFrontToe.matrix.translate(0, -0.254 + .178, -0.494 + .455);
+        
+        
+        // Right-Back Leg
+        this.rightBackLeg.matrix = new Matrix4(fullModelM);
+        this.rightBackLeg.matrix.translate(0.086, -0.178, -0.015);
+        this.rightBackLeg.matrix.translate(0, 0.07, 0.015);
+        this.rightBackLeg.matrix.rotate(rightLegsRot, 1.0, 0.0, -0.0);
+        this.rightBackLeg.matrix.translate(0, -0.07, -0.015);
+        // Right-Back Toe
+        this.rightBackToe.matrix = new Matrix4(this.rightBackLeg.matrix);
+        this.rightBackToe.matrix.translate(0, -0.254 + .178, -.040);
+        
+        
+        this.proximalTail.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.midTail.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.distalTail.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.head.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.leftEar.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.leftEye.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.leftBottomWhisker.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.leftTopWhisker.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.noseTop.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.nosebottom.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.rightEar.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.rightEye.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.rightBottomWhisker.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.rightTopWhisker.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.body.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.leftBackLeg.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.leftFrontLeg.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.rightFrontToe.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.rightBackLeg.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.rightFrontLeg.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.leftFrontToe.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.leftBackToe.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.rightBackToe.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        this.partyHat.render(gl, a_Position, u_FragColor, u_ModelMatrix);
+        
+      }
 }
 
 // class Shape {

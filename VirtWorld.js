@@ -31,6 +31,7 @@ uniform sampler2D u_Sampler0;
 uniform sampler2D u_Sampler1;
 uniform int u_colorSrc;
 varying vec2 v_UV;
+
 void main() {
   if (u_colorSrc == 1) {
     gl_FragColor = u_FragColor;
@@ -123,7 +124,7 @@ function loadTexture(gl, texture, u_Sampler, image, num) {
   gl.bindTexture(gl.TEXTURE_2D, texture);
  
   // Set the texture parameters
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, !num ? gl.LINEAR : gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
@@ -206,6 +207,9 @@ world[31] = Array(32).fill(wallHeight);
 for (var y = 0; y < world.length; y++){
   world[y][0] = wallHeight;
   world[y][31] = wallHeight;
+  // for (var s = 0; s < 10; s++){
+  //   world[y].push(Math.floor(Math.random() * wallHeight));
+  // }
 }
 
 
@@ -224,8 +228,10 @@ const blockCountText = document.getElementById("blockCount");
 let cone1 = new Cone(new Matrix4(), [1, 0, 0], .5, 2);
 let cone2 = new Cone(new Matrix4(), [0, 1, 0], .5, 1);
 let cone3 = new Cone(new Matrix4(), [0, 0, 1], .5, .5);
+let cat = new Cat();
 
 var ext;
+var ext2;
 
 function main() {
 
@@ -241,6 +247,13 @@ function main() {
     throw Error("Could not get extension ''ANGLE_instanced_arrays''");
   }
 
+  // ext2 = gl.getExtension('GMAN_webgl_memory');
+  // if (!ext) {
+  //   throw Error("Could not get extension 'GMAN_webgl_memory'");
+  // }
+
+  // setInterval(() => console.log(ext2.getMemoryInfo()), 2000);
+
   
   [[a_Position, a_UV, a_offset], 
     [u_FragColor, u_ModelMatrix, u_ViewMatrix, 
@@ -255,8 +268,8 @@ function main() {
   camera = new Camera(canvas.width/canvas.height);
   gl.uniformMatrix4fv(u_ProjectionMatrix, false, camera.projectionMatrix.elements);
 
-  initTextures(gl, "stone.jpg", u_Sampler0, 0);
-  initTextures(gl, "grass.png", u_Sampler1, 1);
+  initTextures(gl, "stonev2.png", u_Sampler0, 0);
+  initTextures(gl, "grassv2.png", u_Sampler1, 1);
 
   // Clear <canvas>
   clearCanvas(gl);
@@ -298,7 +311,7 @@ function main() {
   }
 
   let yPan = 0;
-  const MAX_Y_PAN = 90;
+  const MAX_Y_PAN = 85;
   canvas.onmousemove = (ev) => {
 
     // Don't pan if mouse is not locked
@@ -323,6 +336,7 @@ function init_world(){
   skybox = new Cube(new Matrix4(), [.5, .75, 1], [100, wallHeight, 100]);
 
   ground = new TexCube(new Matrix4(), null, [world[0].length * cubeSize, 0.001, world.length * cubeSize]);
+  ground.uvs = ground.uvs.map((i) => i * world[0].length * cubeSize);
   ground.matrix.translate(-cubeSize, -cubeSize, -cubeSize);
   
 }
@@ -333,7 +347,6 @@ function init_world(){
  * @param {WebGLRenderingContext} gl 
  */
 function renderScene(gl){
-  let start_time = Date.now();
   clearCanvas(gl);
   gl.uniform1i(u_ColorSrc, 4);
   ground.render(gl, a_Position, a_UV, u_ModelMatrix);
@@ -349,17 +362,17 @@ function renderScene(gl){
   catMat.translate(10, -.2, 0);
   catMat.rotate(0.1 * Date.now(), 0, 1, 0);
   catMat.translate(1, 0, 0);
-  renderCat(gl, catMat, 0.1 * Date.now());
+  cat.render(gl, catMat, 0.1 * Date.now(), a_Position, u_FragColor, u_ModelMatrix);
 
   catMat.setTranslate(10, -.2, 0);
   catMat.rotate(0.1 * Date.now() + 120, 0, 1, 0);
   catMat.translate(1, 0, 0);
-  renderCat(gl, catMat, 0.1 * Date.now());
+  cat.render(gl, catMat, 0.1 * Date.now(), a_Position, u_FragColor, u_ModelMatrix);
 
   catMat.setTranslate(10, -.2, 0);
   catMat.rotate(0.1 * Date.now() + 240, 0, 1, 0);
   catMat.translate(1, 0, 0);
-  renderCat(gl, catMat, 0.1 * Date.now());
+  cat.render(gl, catMat, 0.1 * Date.now(), a_Position, u_FragColor, u_ModelMatrix);
 
   let adjTime = Date.now() * 0.001;
   cone1.matrix.setTranslate(10, .1 * Math.sin(adjTime) + 1, 0);
@@ -369,196 +382,27 @@ function renderScene(gl){
   cone2.render(gl, a_Position, u_FragColor, u_ModelMatrix);
   cone3.render(gl, a_Position, u_FragColor, u_ModelMatrix);
 
-  let total_time = Date.now() - start_time;
-  frameTimeText.innerText = total_time;
-  fpsText.innerText = Math.round((1000 / total_time) * 100) / 100;
   blockCountText.innerText = wObj.block_count;
 }
 
-function renderCat(gl, fullModelM, time){
-  // Clear <canvas>
-  const furLight = [255/255, 153/255, 20/255]
-  const furDark = [173/255, 104/255, 14/255];
-  const white = furLight;
-  const black = [0, 0, 0];
-  const nose = [235/255, 89/255, 121/255];
-
-  let proxTXSlider = -30;
-  let midTXSlider = -10;
-  let distTXSlider = -10;
-  let proxTYSlider = 45 * Math.sin(time / 30);
-  let midTYSlider = 20 * Math.sin(time / 30);
-  let distTYSlider = 10 * Math.sin(time / 30);
-  let leftLegsRot = 20 * Math.sin(time / 30);
-  let rightLegsRot = 20 * Math.cos(time / 30 + .5)
-
-  // Proximal Tail
-  var proximalTail = new Cube(new Matrix4(fullModelM), furLight, [0.03, 0.03, 0.08]);
-  proximalTail.matrix.translate(0.008, 0.025, 0.06);
-  proximalTail.matrix.rotate(proxTYSlider, 0, 1, 0);
-  proximalTail.matrix.rotate(proxTXSlider, 1, 0, 0);
-  proximalTail.matrix.translate(0, 0, 0.08/2);
-  
-  // Mid Tail
-  var midTail = new Cube(new Matrix4(proximalTail.matrix), furDark, [0.025, 0.025, 0.085]);
-  midTail.matrix.translate(0, 0, .13 - 0.085/2);
-  midTail.matrix.rotate(midTYSlider, 0, 1, 0);
-  midTail.matrix.rotate(midTXSlider, 1, 0, 0);
-  midTail.matrix.translate(0, 0, 0.085/2);
-
-  // Distal Tail
-  var distalTail = new Cube(new Matrix4(midTail.matrix), furLight, [0.02, 0.02, 0.09]);
-  distalTail.matrix.translate(0, 0, .14 - 0.09/2);
-  distalTail.matrix.rotate(distTYSlider, 0, 1, 0);
-  distalTail.matrix.rotate(distTXSlider, 1, 0, 0);
-  distalTail.matrix.translate(0, 0, 0.09/2);
-  
-  
-  // Head
-  var head = new Cube(new Matrix4(fullModelM), furLight, [0.13, 0.13, 0.13]);
-  head.matrix.translate(0.0, 0.086, -0.627);
-  head.matrix.rotate(0.0, 0.0, 0.0, -1.0);  
-  
-
-  // Left Ear
-  var noseFacesColors = Array(8).fill(furDark);
-  noseFacesColors[2] = nose;
-  
-  var leftEar = new Cube(new Matrix4(fullModelM), noseFacesColors, [0.05, 0.05, 0.005]);
-  leftEar.matrix.translate(-0.06, 0.196, -0.707);
-  leftEar.matrix.rotate(54.17, 0.22, -0.54, -0.81);  
-  
-  // Left Eye
-  var leftEye = new Cube(new Matrix4(fullModelM), black, [0.01, 0.03, 0.0]);
-  leftEye.matrix.translate(-0.064, 0.142, -0.763);
-  leftEye.matrix.rotate(0.0, 0.0, 0.0, -1.0);
-
-  // Left-Bottom Whisker
-  var leftBottomWhisker = new Cube(new Matrix4(fullModelM), black, [0.01, 0.04, 0.0]);
-  leftBottomWhisker.matrix.translate(-0.124, 0.037, -0.763);
-  leftBottomWhisker.matrix.rotate(73.32, 0.0, 0.0, -1.0);  
-
-  // Left-Top Whisker
-  var leftTopWhisker = new Cube(new Matrix4(fullModelM), black, [0.01, 0.04, 0.0]);
-  leftTopWhisker.matrix.translate(-0.124, 0.086, -0.763);
-  leftTopWhisker.matrix.rotate(73.32, 0.0, 0.0, 1.0);
-  
-  // Nose Top
-  var noseTop = new Cube(new Matrix4(fullModelM), nose, [0.03, 0.01, 0.0]);
-  noseTop.matrix.translate(0.0, 0.072, -0.765);
-  noseTop.matrix.rotate(0.0, 0.0, 0.0, -1.0);
-
-  // NoseBottom
-  var nosebottom = new Cube(new Matrix4(fullModelM), nose, [0.01, 0.01, 0.0]);
-  nosebottom.matrix.translate(0.0, 0.049, -0.765);
-  nosebottom.matrix.rotate(0.0, 0.0, 0.0, -1.0);  
-
-  // Right Ear
-  var rightEar = new Cube(new Matrix4(fullModelM), noseFacesColors, [0.05, 0.05, 0.005]);
-  rightEar.matrix.translate(0.06, 0.196, -0.707);
-  rightEar.matrix.rotate(54.17, -0.22, 0.54, -0.81);  
-
-  // Right Eye
-  var rightEye = new Cube(new Matrix4(fullModelM), black, [0.01, 0.03, 0.0]);
-  rightEye.matrix.translate(0.064, 0.142, -0.763);
-  rightEye.matrix.rotate(0.0, 0.0, 0.0, -1.0);
-  
-  // Right-Bottom Whisker
-  var rightBottomWhisker = new Cube(new Matrix4(fullModelM), black, [0.01, 0.04, 0.0]);
-  rightBottomWhisker.matrix.translate(0.124, 0.037, -0.763);
-  rightBottomWhisker.matrix.rotate(106.68, 0.0, 0.0, -1.0);
-
-  // Right-Top Whisker
-  var rightTopWhisker = new Cube(new Matrix4(fullModelM), black, [0.01, 0.04, 0.0]);
-  rightTopWhisker.matrix.translate(0.124, 0.086, -0.763);
-  rightTopWhisker.matrix.rotate(106.69, 0.0, -0.0, 1.0);
-  
-  // Party Hat
-  var partyHat = new Cone(new Matrix4(fullModelM), [1, .3, .3], .08, .16);
-  partyHat.matrix.translate(0.0, 0.2 + 0, -0.6);
-
-
-  // Body
-  var body = new Cube(new Matrix4(fullModelM), furLight, [0.12, 0.07, 0.26]);
-  body.matrix.translate(0.0, -0.014, -0.238);
-  body.matrix.rotate(0.0, 0.0, 0.0, -1.0);
-  
-  
-
-  // Left-Back Leg
-  var leftBackLeg = new Cube(new Matrix4(fullModelM), furDark, [0.03, 0.1, 0.03]);
-  leftBackLeg.matrix.translate(-0.086, -0.178, -0.015);
-  leftBackLeg.matrix.translate(0, 0.07, 0.015);
-  leftBackLeg.matrix.rotate(leftLegsRot, 1.0, 0.0, -0.0);
-  leftBackLeg.matrix.translate(0, -0.07, -0.015);
-  // Left-Back Toe
-  var leftBackToe = new Cube(new Matrix4(leftBackLeg.matrix), white, [0.03, 0.02, 0.03]);
-  leftBackToe.matrix.translate(0, -0.254 + .178, -0.040);
-  
-
-  // Left-Front Leg
-  var leftFrontLeg = new Cube(new Matrix4(fullModelM), furDark, [0.03, 0.1, 0.03]);
-  leftFrontLeg.matrix.translate(-0.086, -0.178, -0.455);
-  leftFrontLeg.matrix.translate(0, 0.07, 0.015);
-  leftFrontLeg.matrix.rotate(leftLegsRot, 1.0, 0.0, -0.0);
-  leftFrontLeg.matrix.translate(0, -0.07, -0.015);
-  // Left-Front Toe
-  var leftFrontToe = new Cube(new Matrix4(leftFrontLeg.matrix), white, [0.03, 0.02, 0.03]);
-  leftFrontToe.matrix.translate(0, -0.254 + .178, -0.494 + .455);
-  
-
-  // Right-Front Leg
-  var rightFrontLeg = new Cube(new Matrix4(fullModelM), furDark, [0.03, 0.1, 0.03]);
-  rightFrontLeg.matrix.translate(0.086, -0.178, -0.455);
-  rightFrontLeg.matrix.translate(0, 0.07, 0.015);
-  rightFrontLeg.matrix.rotate(rightLegsRot, 1.0, 0.0, -0.0);
-  rightFrontLeg.matrix.translate(0, -0.07, -0.015);
-  // Right-Front Toe
-  var rightFrontToe = new Cube(new Matrix4(rightFrontLeg.matrix), white, [0.03, 0.02, 0.03]);
-  rightFrontToe.matrix.translate(0, -0.254 + .178, -0.494 + .455);
-  
-  
-  // Right-Back Leg
-  var rightBackLeg = new Cube(new Matrix4(fullModelM), furDark, [0.03, 0.1, 0.03]);
-  rightBackLeg.matrix.translate(0.086, -0.178, -0.015);
-  rightBackLeg.matrix.translate(0, 0.07, 0.015);
-  rightBackLeg.matrix.rotate(rightLegsRot, 1.0, 0.0, -0.0);
-  rightBackLeg.matrix.translate(0, -0.07, -0.015);
-  // Right-Back Toe
-  var rightBackToe = new Cube(new Matrix4(rightBackLeg.matrix), white, [0.03, 0.02, 0.03]);
-  rightBackToe.matrix.translate(0, -0.254 + .178, -.040);
-  
-  
-  proximalTail.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  midTail.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  distalTail.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  head.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  leftEar.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  leftEye.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  leftBottomWhisker.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  leftTopWhisker.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  noseTop.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  nosebottom.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  rightEar.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  rightEye.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  rightBottomWhisker.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  rightTopWhisker.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  body.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  leftBackLeg.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  leftFrontLeg.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  rightFrontToe.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  rightBackLeg.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  rightFrontLeg.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  leftFrontToe.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  leftBackToe.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  rightBackToe.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  partyHat.render(gl, a_Position, u_FragColor, u_ModelMatrix);
-  
-}
+var last_time = 0;
+var frameNumber = 0;
 
 function tick(gl) {
   gl.uniformMatrix4fv(u_ViewMatrix, false, camera.viewMatrix.elements);
   renderScene(gl);
 
-  requestAnimationFrame(() => tick(gl));
+  function do_frame(ts){
+    tick(gl);
+    frameNumber++;
+    if (frameNumber >= 10){
+      let frameTime = (Date.now() - last_time)/frameNumber;
+      frameTimeText.innerText = frameTime;
+      fpsText.innerText = Math.round(1000 / frameTime);
+      last_time = Date.now();
+      frameNumber = 0;
+    }
+    
+  }
+  requestAnimationFrame(do_frame);
 }
