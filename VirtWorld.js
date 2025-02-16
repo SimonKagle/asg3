@@ -201,7 +201,7 @@ var world = [
   [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
 ];
 
-const wallHeight = 20000;
+const wallHeight = 10000;
 world[0] = Array(32).fill(wallHeight);
 world[31] = Array(32).fill(wallHeight);
 for (var y = 0; y < world.length; y++){
