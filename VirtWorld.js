@@ -201,7 +201,7 @@ var world = [
   [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
 ];
 
-const wallHeight = 5000;
+const wallHeight = 1000;
 world[0] = Array(32).fill(wallHeight);
 world[31] = Array(32).fill(wallHeight);
 for (var y = 0; y < world.length; y++){
@@ -341,12 +341,16 @@ function init_world(){
   
 }
 
+let acc_frame_time = 0;
 
 /**
  * Renders scene
  * @param {WebGLRenderingContext} gl 
  */
 function renderScene(gl){
+
+  let start = performance.now();
+
   clearCanvas(gl);
   gl.uniform1i(u_ColorSrc, 4);
   ground.render(gl, a_Position, a_UV, u_ModelMatrix);
@@ -382,7 +386,12 @@ function renderScene(gl){
   cone2.render(gl, a_Position, u_FragColor, u_ModelMatrix);
   cone3.render(gl, a_Position, u_FragColor, u_ModelMatrix);
 
-  blockCountText.innerText = wObj.block_count;
+  let curr_frame_time = performance.now() - start
+  acc_frame_time += curr_frame_time;
+  if (curr_frame_time > 1000/60){
+    console.log(curr_frame_time);
+  }
+  blockCountText.innerText = wObj.block_count.toLocaleString();
 }
 
 var last_time = 0;
@@ -395,14 +404,14 @@ function tick(gl) {
   function do_frame(ts){
     tick(gl);
     frameNumber++;
-    if (frameNumber >= 10){
-      let frameTime = (Date.now() - last_time)/frameNumber;
-      frameTimeText.innerText = frameTime;
-      fpsText.innerText = Math.round(1000 / frameTime);
-      last_time = Date.now();
-      frameNumber = 0;
-    }
-    
   }
   requestAnimationFrame(do_frame);
 }
+
+setInterval(()=>{
+  let frameTime = 1000 / frameNumber;
+  frameTimeText.innerText = Math.round((acc_frame_time / frameNumber) * 100) / 100;
+  fpsText.innerText = Math.round(1000 / frameTime);
+  frameNumber = 0;
+  acc_frame_time = 0;
+}, 1000);

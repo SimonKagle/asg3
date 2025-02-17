@@ -321,6 +321,7 @@ class World {
      * @param {Number[][]} blockHeights Heights of each block tower in the world
      */
     constructor (blockHeights, cubeSize){
+        /**@type {Number} */
         this.block_count = 0;
         /**@type {Boolean[][][]} */
         this.cubes = [];
@@ -430,24 +431,16 @@ class World {
             this.block_count = 0;
             for (var z = 0; z < this.cubes.length; z++){
                 for (var x = 0; x < this.cubes[z].length; x++){
-                    // for (var y = 0; y < this.cubes[z][x].length; y++){
-                    //     if (this.cubes[z][x][y]){
-                    //         this.offset_cache.push(
-                    //             (x - this.cubes[z].length / 2) * 2 * this.cubeSize, 
-                    //             y * 2 * this.cubeSize, 
-                    //             (z - this.cubes.length / 2) * 2 * this.cubeSize
-                    //         );
-                    //         this.block_count++;
-                    //     }
-                    // }
-                    this.cubes[z][x].filter((v) => v).forEach((_, y) => {
-                        this.offset_cache.push(
-                            (x - this.cubes[z].length / 2) * 2 * this.cubeSize, 
-                            y * 2 * this.cubeSize, 
-                            (z - this.cubes.length / 2) * 2 * this.cubeSize
-                        );
-                        this.block_count++;
-                    });
+                    for (var y = 0; y < this.cubes[z][x].length; y++){
+                        if (this.cubes[z][x][y]){
+                            this.offset_cache.push(
+                                (x - this.cubes[z].length / 2) * 2 * this.cubeSize, 
+                                y * 2 * this.cubeSize, 
+                                (z - this.cubes.length / 2) * 2 * this.cubeSize
+                            );
+                            this.block_count++;
+                        }
+                    }
                 }
             }
 
